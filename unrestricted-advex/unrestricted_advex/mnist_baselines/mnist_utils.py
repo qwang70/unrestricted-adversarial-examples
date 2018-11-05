@@ -7,6 +7,8 @@ import tensorflow as tf
 from cleverhans.attacks import MadryEtAl
 from tensorflow.examples.tutorials.mnist import input_data
 from unrestricted_advex.mnist_baselines import mnist_convnet
+from scipy import ndimage
+import image_process
 
 NUM_CLASSES = 10
 
@@ -14,6 +16,10 @@ NUM_CLASSES = 10
 def mnist_dataset(one_hot):
   return input_data.read_data_sets('MNIST_data', one_hot=one_hot)
 
+def mnist_dataset_blur(one_hot):
+  dataset = mnist_dataset
+  dataset.train.images = image_process.apply_gaussian_filter(dataset.train.images)
+  return dataset
 
 def labels_to_one_hot(labels):
   one_hot = np.zeros((len(labels), NUM_CLASSES))
