@@ -66,7 +66,7 @@ def run_attack(model, data_iter, attack_fn):
     all_correct.append(correct)
     all_xadv.append(x_adv)
     all_image_ids += list(image_ids)
-
+  print(type(all_xadv))
   return (np.concatenate(all_logits),
           np.concatenate(all_labels),
           np.concatenate(all_correct),

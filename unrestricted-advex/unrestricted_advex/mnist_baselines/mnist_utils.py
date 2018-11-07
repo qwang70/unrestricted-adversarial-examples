@@ -1,6 +1,7 @@
 import itertools
 import math
 import os
+import collections
 
 import numpy as np
 import tensorflow as tf
@@ -17,9 +18,8 @@ def mnist_dataset(one_hot):
   return input_data.read_data_sets('MNIST_data', one_hot=one_hot)
 
 def mnist_dataset_blur(one_hot):
-  dataset = mnist_dataset
-  dataset.train.images = image_process.apply_gaussian_filter(dataset.train.images)
-  return dataset
+  dataset = mnist_dataset(one_hot)
+  return image_process.apply_gaussian_to_dataset(dataset)
 
 def labels_to_one_hot(labels):
   one_hot = np.zeros((len(labels), NUM_CLASSES))
