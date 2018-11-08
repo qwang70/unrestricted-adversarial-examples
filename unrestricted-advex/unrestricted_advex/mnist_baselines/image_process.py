@@ -25,7 +25,7 @@ def apply_gaussian_to_dataset(dataset):
 
     return blur_dataset
 
-def apply_gaussian_filter(images, sigma = 5, scale_to_255 = True):
+def apply_gaussian_filter(images, sigma = 2, scale_to_255 = True):
     for i in range(images.shape[0]):
         img_2d = np.reshape(images[i], (28,28))
         blur = ndimage.gaussian_filter(img_2d, sigma=sigma)
@@ -34,14 +34,14 @@ def apply_gaussian_filter(images, sigma = 5, scale_to_255 = True):
         images[i] = np.reshape(blur, (-1))
     return images
 
-def map_gaussian_filter(image, sigma = 5):
+def map_gaussian_filter(image, sigma = 2):
     img_2d = np.reshape(image, (28,28))
     blur = ndimage.gaussian_filter(img_2d, sigma=sigma)
     image = np.reshape(blur, (-1))
     return image
 
 
-def apply_gaussian_filter_3d(images, sigma = 5):
+def apply_gaussian_filter_3d(images, sigma = 2):
     for i in range(images.shape[0]):
         blur = ndimage.gaussian_filter(images[i], sigma=sigma)
         images[i] = blur

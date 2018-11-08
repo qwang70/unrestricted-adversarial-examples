@@ -8,6 +8,7 @@ from __future__ import print_function
 
 import math
 import os
+import matplotlib.pyplot as plt
 
 import bird_or_bicycle
 import numpy as np
@@ -34,6 +35,49 @@ def _validate_logits(logits, batch_size):
 
 def logits_to_preds(logits):
   return (logits[:, 0] < logits[:, 1]).astype(np.int64)
+
+def run_attack_blur(model, data_iter, attack_fn):
+  """ Runs an attack on the model_fn for every batch in data_iter and returns the results
+
+  :param model: Callable batch-input -> batch-probability in [0, 1]
+  :param data_iter: NHWC data iterator
+  :param attack_fn: Callable (model_fn, x_np, y_np) -> x_adv
+  :return: (logits, labels, x_adv)
+  """
+  all_labels = []
+  all_logits = []
+  all_correct = []
+  all_xadv = []
+  all_image_ids = []
+
+  # TODO: Add assertion about the model's throughput
+  for i_batch, (x_np, y_np, image_ids) in enumerate(tqdm(data_iter)):
+    assert x_np.shape[-1] == 3 or x_np.shape[-1] == 1, "Data was {}, should be NHWC".format(
+      x_np.shape)
+
+    x_adv = attack_fn(model, x_np, y_np)
+
+    # add blur to test images
+    x_adv = image_process.apply_gaussian_filter_3d(x_adv)
+
+    logits = model(x_adv)
+    preds = logits_to_preds(logits)
+    correct = np.equal(preds, y_np).astype(np.float32)
+    print_metrics(preds, y_np)
+
+    _validate_logits(logits, batch_size=len(x_np))
+
+    all_labels.append(y_np)
+    all_logits.append(logits)
+    all_correct.append(correct)
+    all_xadv.append(x_adv)
+    all_image_ids += list(image_ids)
+  #plt.imsave('test.png', x_adv[0, :, :, 0])
+  return (np.concatenate(all_logits),
+          np.concatenate(all_labels),
+          np.concatenate(all_correct),
+          np.concatenate(all_xadv),
+          all_image_ids)
 
 
 def run_attack(model, data_iter, attack_fn):
@@ -66,7 +110,6 @@ def run_attack(model, data_iter, attack_fn):
     all_correct.append(correct)
     all_xadv.append(x_adv)
     all_image_ids += list(image_ids)
-  print(type(all_xadv))
   return (np.concatenate(all_logits),
           np.concatenate(all_labels),
           np.concatenate(all_correct),
@@ -108,10 +151,7 @@ def evaluate_two_class_unambiguous_model_add_blur_after_attack(
     else:
       attack_data_iter = data_iter
 
-    logits, labels, correct, x_adv, image_ids = run_attack(model_fn, attack_data_iter, attack)
-
-    # add blur to test images
-    x_adv = image_process.apply_gaussian_filter_3d(x_adv)
+    logits, labels, correct, x_adv, image_ids = run_attack_blur(model_fn, attack_data_iter, attack)
 
     results_dir = os.path.join(adversarial_images_dir, attack.name)
     plotting.save_correct_and_incorrect_adv_images(
@@ -446,3 +486,25 @@ def evaluate_bird_or_bicycle_model(model_fn, dataset_iter=None, model_name=None)
     model_fn, dataset_iter,
     model_name=model_name,
     attack_list=attack_list)
+
+def print_metrics(pred_labels, true_labels):
+    # True Positive (TP): we predict a label of 1 (positive), and the true label is 1.
+    TP = np.sum(np.logical_and(pred_labels == 1, true_labels == 1))
+     
+    # True Negative (TN): we predict a label of 0 (negative), and the true label is 0.
+    TN = np.sum(np.logical_and(pred_labels == 0, true_labels == 0))
+     
+    # False Positive (FP): we predict a label of 1 (positive), but the true label is 0.
+    FP = np.sum(np.logical_and(pred_labels == 1, true_labels == 0))
+     
+    # False Negative (FN): we predict a label of 0 (negative), but the true label is 1.
+    FN = np.sum(np.logical_and(pred_labels == 0, true_labels == 1))
+
+    print("TP\t{}\tTN\t{}\tFP\t{}\tFN\t{}\t".format( TP, TN, FP, FN))
+    recall = TP/float(TP+FN)
+    true_negative_rate = TN/float(FP+TN)
+    precision = TP/float(TP+FP)
+    negative_predictive_value = TN/float(TN+FN)
+    f1 = 2.*TP/(2.*TP + FP + FN)
+    print("recall\t{}\ttrue_negative_rate\t{}\nprecision\t{}\tnegative_predictive_value\t{}\nf1\t{}\t".format(recall, true_negative_rate,precision,negative_predictive_value,f1))
+
