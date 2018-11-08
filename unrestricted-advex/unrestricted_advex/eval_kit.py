@@ -101,7 +101,10 @@ def run_attack(model, data_iter, attack_fn):
 
     x_adv = attack_fn(model, x_np, y_np)
     logits = model(x_adv)
-    correct = np.equal(logits_to_preds(logits), y_np).astype(np.float32)
+
+    preds = logits_to_preds(logits)
+    correct = np.equal(preds, y_np).astype(np.float32)
+    print_metrics(preds, y_np)
 
     _validate_logits(logits, batch_size=len(x_np))
 
